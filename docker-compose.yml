@@ -1,0 +1,9 @@
+db:
+  image: mdillon/postgis:9.4
+  container_name: geojson_postgres
+  environment:
+    POSTGRES_DB: geojson_development
+    POSTGRES_PASSWD: geojson
+    POSTGRES_USER: geojson
+  ports:
+    - "5432:5432"
