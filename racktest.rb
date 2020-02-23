@@ -8,8 +8,7 @@ module Rack
   class Racktest
     # connect to the POSTGRES server
     DB = Sequel.connect('postgres://geojson:geojson@localhost:5432/geojson_development')
-    DB.run("CREATE TABLE IF NOT EXISTS geojson_points (point_id serial PRIMARY KEY, point_geog geography(POINT))")
-    QS = "SELECT srid, auth_name, auth_srid, proj4text FROM spatial_ref_sys WHERE cast(SRID as text) LIKE ?"
+    DB.run("CREATE TABLE IF NOT EXISTS geojson_points (point_id serial PRIMARY KEY, point_geom geometry(POINT))")
     @result = nil
     #evn is the environment, containing QUERY_STRING, REQUEST_METHOD, SERVER_NAME, etc. This is how geojson data will be fed to the app
     def call(env)
@@ -34,12 +33,23 @@ module Rack
         x_coords.each_with_index do |x_coord, index|
             puts "X/Y : " + x_coord[:st_x].to_s + "/" + y_coords[index][:st_y].to_s
             # put point into table; "all" invocation is necessary for data to be commited to DB
-            DB["INSERT INTO geojson_points(point_geog) VALUES (ST_GeomFromText('POINT(? ?)'))", x_coord[:st_x], y_coords[index][:st_y]].all
+            DB["INSERT INTO geojson_points(point_geom) VALUES (ST_GeomFromText('POINT(? ?)'))", x_coord[:st_x], y_coords[index][:st_y]].all
         end
       elsif env["REQUEST_METHOD"] == "GET" # Endpoint 2 or 3; if given a point and an int, calc the points with radius; if a polygon, find points within it
+        input = env['rack.input'].read
+        puts "INPUT: " + input
+        decoded_input = RGeo::GeoJSON.decode(input)
+        puts "CLASS: " + decoded_input.class.to_s
+        if decoded_input.class.to_s == "RGeo::Cartesian::PointImpl"
+          puts "ITS A POINT"
+        elsif decoded_input.class.to_s == "RGeo::Cartesian::PolygonImpl"
+          qs = "SELECT gp.point_id FROM geojson_points gp WHERE ST_Contains(ST_GeomFromText(?), gp.point_geom) = TRUE"
+          results = DB[qs, decoded_input.as_text].all
+          results.each do |r|
+            puts "RESULT: " + r.to_s
+          end
+        end
         #Endpoint 2: Use ST_PointInsideCircle?
-        #Endpont 3: Use ST_CONTAINS?
-        @result = DB[QS, "38%"]
       end
 
       content = ""
