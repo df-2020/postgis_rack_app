@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-require_relative 'racktest'
+require_relative 'geojson_rack_app'
 
 use Rack::ShowExceptions
-run Rack::Racktest.new
+run Rack::GeojsonRackApp.new
