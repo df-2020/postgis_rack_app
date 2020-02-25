@@ -197,7 +197,7 @@ class GeojsonRackAppTester < Test::Unit::TestCase
     assert_equal('[{"point":"POINT(-90.071533 29.951065)"}]', response.body) # New Orleans
 
     req.body = {
-        "type": 'Polygon', # Massive Polygon which should contain all Louisiana points (Something's wrong, doesn't contain Madisonville or Metairiefpt)
+        "type": 'Polygon', # Massive Polygon which should contain all Louisiana points
         "coordinates": [
             [
                 [-74.00597, 40.71427], # New York City, New York
