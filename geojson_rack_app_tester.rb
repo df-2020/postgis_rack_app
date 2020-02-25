@@ -1,7 +1,10 @@
 require_relative "geojson_rack_app"
 require "test/unit"
 
+##
+# Tester for the GeojsonRackApp. Submits requests to the application, and compares the results to expected outputs.
 class GeojsonRackAppTester < Test::Unit::TestCase
+  ##
   # Test cases for sending points via a POST request
   def test_point_posting
     uri = URI("http://localhost:9292/")
@@ -101,6 +104,7 @@ class GeojsonRackAppTester < Test::Unit::TestCase
     assert_equal("OK", response.message)
   end
 
+  ##
   # Test cases for determining which points fall within the radius of a given point
   def test_radius_function
     uri = URI("http://localhost:9292/")
@@ -114,11 +118,13 @@ class GeojsonRackAppTester < Test::Unit::TestCase
     response = Net::HTTP.start(uri.hostname, uri.port) do |http|
       http.request(req)
     end
+    puts response.body
 
     assert_equal("200", response.code)
     assert_equal("OK", response.message)
   end
 
+  ##
   # Test cases for determining which points fall within the area of the given polygon
   def test_polygon_function
     uri = URI("http://localhost:9292/")
@@ -139,6 +145,7 @@ class GeojsonRackAppTester < Test::Unit::TestCase
     response = Net::HTTP.start(uri.hostname, uri.port) do |http|
       http.request(req)
     end
+    puts response.body
 
     assert_equal("200", response.code)
     assert_equal("OK", response.message)
