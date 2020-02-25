@@ -13,8 +13,9 @@ module Rack
   class GeojsonRackApp
     # Connect to the POSTGRES server and save the connection as a constant
     DB = Sequel.connect("postgres://geojson:geojson@localhost:5432/geojson_development")
-    # If the geojson_points table does not exist in our DB, create it
-    DB.run("CREATE TABLE IF NOT EXISTS geojson_points (point_id serial PRIMARY KEY, point_geom geometry(POINT), srid integer DEFAULT 4326)")
+    # Drop the geojson_points table if it exists, and re-create it, so we have a fresh set of data
+    DB.run("DROP TABLE geojson_points")
+    DB.run("CREATE TABLE geojson_points (point_id serial PRIMARY KEY, point_geom geometry(POINT), srid integer DEFAULT 4326)")
     @srid = nil
     @decoded_input = nil
     ##
@@ -91,7 +92,7 @@ module Rack
     ##
     # Calculates which points in our DB fall within a number of meters equals to the given radius value from a given point
     def points_within_radius(radius)
-      qs = "SELECT ST_AsText(gp.point_geom) FROM geojson_points gp WHERE ST_DWithin(ST_GeographyFromText(?), ST_Transform(gp.point_geom, 4326)::geography, ?) = TRUE"
+      qs = "SELECT ST_AsText(gp.point_geom) point FROM geojson_points gp WHERE ST_DWithin(ST_GeographyFromText(?), ST_Transform(gp.point_geom, 4326)::geography, ?) = TRUE"
       # Extended Well-Known text (EWKT)
       ewkt = "SRID=" + @srid + ";" + @decoded_input.as_text
       results = DB[qs, ewkt, radius].all
@@ -102,7 +103,7 @@ module Rack
     ##
     # Determines which points in our DB fall within a given Polygon from a GET request
     def points_within_polygon
-      qs = "SELECT ST_AsText(gp.point_geom) FROM geojson_points gp WHERE ST_Contains(ST_GeomFromEWKT(?), ST_Transform(gp.point_geom, 4326)) = TRUE"
+      qs = "SELECT ST_AsText(gp.point_geom) point FROM geojson_points gp WHERE ST_Contains(ST_GeomFromEWKT(?), ST_Transform(gp.point_geom, 4326)) = TRUE"
       # Extended Well-Known text (EWKT)
       ewkt = "SRID=" + @srid + ";" + @decoded_input.as_text
       # Append the SRID for distance calculations
@@ -115,7 +116,7 @@ module Rack
     # Inserts an array of GeoJSON Points into our DB
     def insert_array_of_points(array_of_points)
       # Initialize SRID
-      @srid = "3857"
+      @srid = "4326"
       number_of_inserts = 0
       JSON.parse(array_of_points).each do |point|
         @decoded_input = RGeo::GeoJSON.decode(point)
