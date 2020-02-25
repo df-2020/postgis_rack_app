@@ -3,11 +3,9 @@ Rack application with a postGIS database. Performs simple functions based on use
 
 This rack application has three functions:
 
--It can take an array of GeoJSON Points or a GeometryCollection in a POST request, and insert them into its postgres database.
-
--If sent a GET request with a GeoJSON Point and a radius integer, it will return all points within a number of meters equal to the radius of the given point.
-
--If sent a GET request with a GeoJSON Polygon, it will return all points that fall within that polygon
+- It can take an array of GeoJSON Points or a GeometryCollection in a POST request, and insert them into its postgres database.
+- If sent a GET request with a GeoJSON Point and a radius integer, it will return all points within a number of meters equal to the radius of the given point.
+- If sent a GET request with a GeoJSON Polygon, it will return all points that fall within that polygon
 
 This program requires an instance of Postgres 9.4 with PostGIS 2.5 installed. A fitting docker container with usage instructions can be found here:
 
