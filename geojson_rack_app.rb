@@ -102,7 +102,7 @@ module Rack
     ##
     # Determines which points in our DB fall within a given Polygon from a GET request
     def points_within_polygon
-      qs = "SELECT ST_AsText(gp.point_geom) FROM geojson_points gp WHERE ST_Contains(ST_GeomFromEWKT(?), gp.point_geom) = TRUE"
+      qs = "SELECT ST_AsText(gp.point_geom) FROM geojson_points gp WHERE ST_Contains(ST_GeomFromEWKT(?), ST_Transform(gp.point_geom, 4326)) = TRUE"
       # Extended Well-Known text (EWKT)
       ewkt = "SRID=" + @srid + ";" + @decoded_input.as_text
       # Append the SRID for distance calculations
