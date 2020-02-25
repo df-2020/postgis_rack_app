@@ -8,13 +8,13 @@ module Rack
   ##
   # This class handles requests for GeoJSON data. POST requests with either an array of GeoJSON Points or a GeoJSON GeometryCollection
   # will be inserted into the PostgreSQL/PostGIS database. GET requests with a GeoJSON Point and a integer value will receive as a response
-  # all points in the database within the given value of the given point. GET requests with a GeoJSON Polygon will receive as a response
-  # all points in the database that fall within the given polygon.
+  # all points in the database within a number of meters equal to the given value of the given point. GET requests with a GeoJSON Polygon
+  # will receive as a response all points in the database that fall within the given polygon.
   class GeojsonRackApp
     # Connect to the POSTGRES server and save the connection as a constant
     DB = Sequel.connect("postgres://geojson:geojson@localhost:5432/geojson_development")
     # If the geojson_points table does not exist in our DB, create it
-    DB.run("CREATE TABLE IF NOT EXISTS geojson_points (point_id serial PRIMARY KEY, point_geom geometry(POINT), srid integer DEFAULT 3857)")
+    DB.run("CREATE TABLE IF NOT EXISTS geojson_points (point_id serial PRIMARY KEY, point_geom geometry(POINT), srid integer DEFAULT 4326)")
     @srid = nil
     @decoded_input = nil
     ##
@@ -30,12 +30,13 @@ module Rack
       if JSON.parse(input).class.to_s == "Array"
         return insert_array_of_points(input)
       end
-      # If an SRID is supplied, use it. Oherwise, use our default.
+
+      # If an SRID is supplied, use it. Otherwise, use our default.
       parsed_srid = JSON.parse(input)["srid"].to_s
       @srid = if !parsed_srid.nil? && !parsed_srid.empty?
         parsed_srid
       else
-        @srid = "3857"
+        @srid = "4326"
       end
       # Decode the input into GeoJSON
       @decoded_input = RGeo::GeoJSON.decode(input)
@@ -43,7 +44,7 @@ module Rack
       # return an error code to the requester
       unless @decoded_input.class.method_defined? :as_text
         content = "Input is not a valid GeoJSON Geometry type."
-        return [400, {CONTENT_TYPE => "text/html", CONTENT_LENGTH => content.length.to_s}, [content]]
+        return [400, { CONTENT_TYPE => "text/html", CONTENT_LENGTH => content.length.to_s }, [content]]
       end
       # User is giving geojson points; add them to table
       if env["REQUEST_METHOD"] == "POST" && env["CONTENT_TYPE"] == "application/geo+json"
@@ -59,11 +60,11 @@ module Rack
         # The Input is invalid
         else
           content = "Invalid GeoJSON object; Please GET with only a GeoJSON Point or Polygon."
-          [400, {CONTENT_TYPE => "text/html", CONTENT_LENGTH => content.length.to_s}, [content]]
+          [400, { CONTENT_TYPE => "text/html", CONTENT_LENGTH => content.length.to_s }, [content]]
         end
       else
         content = "Invalid request; Please issue a GET with either a GeoJSON Polygon, or a GeoJSON Point with an integer radius, or issue a POST with an array of GeoJSON Points or a GeometryCollection."
-        [400, {CONTENT_TYPE => "text/html", CONTENT_LENGTH => content.length.to_s}, [content]]
+        [400, { CONTENT_TYPE => "text/html", CONTENT_LENGTH => content.length.to_s }, [content]]
       end
     end
 
@@ -84,18 +85,18 @@ module Rack
         DB["INSERT INTO geojson_points(point_geom, srid) VALUES (ST_GeomFromEWKT('SRID=?;POINT(? ?)'), ?)", Integer(@srid), x_coord[:st_x], y_coords[index][:st_y], @srid].all
       end
       content = "Inserted " + x_coords.length.to_s + " points into the database."
-      [200, {CONTENT_TYPE => "text/html", CONTENT_LENGTH => content.length.to_s}, [content]]
+      [200, { CONTENT_TYPE => "text/html", CONTENT_LENGTH => content.length.to_s }, [content]]
     end
 
     ##
-    # Calculates which points in our DB fall within the given radius value from a given point
+    # Calculates which points in our DB fall within a number of meters equals to the given radius value from a given point
     def points_within_radius(radius)
-      qs = "SELECT ST_AsText(gp.point_geom) FROM geojson_points gp WHERE ST_DWithin(ST_GeomFromEWKT(?), gp.point_geom, ?) = TRUE"
+      qs = "SELECT ST_AsText(gp.point_geom) FROM geojson_points gp WHERE ST_DWithin(ST_GeographyFromText(?), ST_Transform(gp.point_geom, 4326)::geography, ?) = TRUE"
       # Extended Well-Known text (EWKT)
       ewkt = "SRID=" + @srid + ";" + @decoded_input.as_text
       results = DB[qs, ewkt, radius].all
-      content = results.to_json #convert to geojson
-      [200, {CONTENT_TYPE => "application/geo+json", CONTENT_LENGTH => content.length.to_s}, [content]]
+      content = results.to_json
+      [200, { CONTENT_TYPE => "application/geo+json", CONTENT_LENGTH => content.length.to_s }, [content]]
     end
 
     ##
@@ -106,8 +107,8 @@ module Rack
       ewkt = "SRID=" + @srid + ";" + @decoded_input.as_text
       # Append the SRID for distance calculations
       results = DB[qs, ewkt].all
-      content = results.to_json #convert to geojson?
-      [200, {CONTENT_TYPE => "application/geo+json", CONTENT_LENGTH => content.length.to_s}, [content]]
+      content = results.to_json
+      [200, { CONTENT_TYPE => "application/geo+json", CONTENT_LENGTH => content.length.to_s }, [content]]
     end
 
     ##
@@ -122,17 +123,17 @@ module Rack
         number_of_inserts += 1
       end
       content = "Inserted " + number_of_inserts.to_s + " points into the database."
-      [200, {CONTENT_TYPE => "text/html", CONTENT_LENGTH => content.length.to_s}, [content]]
+      [200, { CONTENT_TYPE => "text/html", CONTENT_LENGTH => content.length.to_s }, [content]]
     end
   end
 end
 
 # Start the Rack server, based on code from rack's lobster.rb example application
-if $0 == __FILE__
+if $PROGRAM_NAME == __FILE__
   # :nocov:
   require_relative "../rack"
   Rack::Server.start(
-      app: Rack::ShowExceptions.new(Rack::Lint.new(Rack::GeojsonRackApp.new)), Port: 9292
-    )
+    app: Rack::ShowExceptions.new(Rack::Lint.new(Rack::GeojsonRackApp.new)), Port: 9292
+  )
   # :nocov:
 end
