@@ -10,9 +10,9 @@ class GeojsonRackAppTester < Test::Unit::TestCase
   # Test cases for sending points via a POST request
   def test_point_posting
     uri = URI('http://localhost:9292/')
-
     req = Net::HTTP::Post.new(uri, 'Content-Type' => 'application/geo+json')
 
+    # Inserting a LineString with an SRID into the DB
     req.body = {
       "type": 'LineString',
       "coordinates": [
@@ -24,7 +24,6 @@ class GeojsonRackAppTester < Test::Unit::TestCase
     response = Net::HTTP.start(uri.hostname, uri.port) do |http|
       http.request(req)
     end
-
     assert_equal('200', response.code)
     assert_equal('OK', response.message)
 
@@ -46,6 +45,7 @@ class GeojsonRackAppTester < Test::Unit::TestCase
     #   http.request(req)
     # end
 
+    # Inserting a MultiLineString with an SRID into the DB
     req.body = {
       "type": 'MultiLineString',
       "coordinates": [
@@ -63,10 +63,10 @@ class GeojsonRackAppTester < Test::Unit::TestCase
     response = Net::HTTP.start(uri.hostname, uri.port) do |http|
       http.request(req)
     end
-
     assert_equal('200', response.code)
     assert_equal('OK', response.message)
 
+    # Inserting a GeometryCollection containing a Point and a LineString into the DB
     req.body = {
       "type": 'GeometryCollection',
       "geometries": [{
@@ -83,10 +83,10 @@ class GeojsonRackAppTester < Test::Unit::TestCase
     response = Net::HTTP.start(uri.hostname, uri.port) do |http|
       http.request(req)
     end
-
     assert_equal('200', response.code)
     assert_equal('OK', response.message)
 
+    # Inserting an array of Points into the DB
     req.body = [{
       "type": 'Point',
       "coordinates": [-90.02944, 29.90222] # Terrytown
@@ -100,7 +100,6 @@ class GeojsonRackAppTester < Test::Unit::TestCase
     response = Net::HTTP.start(uri.hostname, uri.port) do |http|
       http.request(req)
     end
-
     assert_equal('200', response.code)
     assert_equal('OK', response.message)
   end
@@ -111,6 +110,7 @@ class GeojsonRackAppTester < Test::Unit::TestCase
     uri = URI('http://localhost:9292/')
     req = Net::HTTP::Get.new(uri)
 
+    # 3km radius search around Metairie; should return no points
     req.body = {
       "type": 'Point',
       "coordinates": [-90.17750, 29.99778], # Metairie
@@ -119,11 +119,24 @@ class GeojsonRackAppTester < Test::Unit::TestCase
     response = Net::HTTP.start(uri.hostname, uri.port) do |http|
       http.request(req)
     end
-
     assert_equal('200', response.code)
     assert_equal('OK', response.message)
-    assert_equal('[]', response.body)
+    assert_equal('[]', response.body) # No points within 3 km
 
+    # 12km radius search around Metairie, LA; should contain New Orleans
+    req.body = {
+        "type": 'Point',
+        "coordinates": [-90.17750, 29.99778], # Metairie
+        "radius": 12000
+    }.to_json
+    response = Net::HTTP.start(uri.hostname, uri.port) do |http|
+      http.request(req)
+    end
+    assert_equal('200', response.code)
+    assert_equal('OK', response.message)
+    assert_equal('[{"point":"POINT(-90.071533 29.951065)"}]', response.body) # New Orleans, ~12km from Metairie
+
+    # 10km radius search from Madisonville, LA; should contain Mandeville
     req.body = {
         "type": 'Point',
         "coordinates": [-90.16167, 30.40722], # Madisonville
@@ -132,11 +145,11 @@ class GeojsonRackAppTester < Test::Unit::TestCase
     response = Net::HTTP.start(uri.hostname, uri.port) do |http|
       http.request(req)
     end
-
     assert_equal('200', response.code)
     assert_equal('OK', response.message)
-    assert_equal('[{"point":"POINT(-90.07806 30.36917)"}]', response.body)
+    assert_equal('[{"point":"POINT(-90.07806 30.36917)"}]', response.body) # Mandeville, ~10 km from Madisonville
 
+    # 19km radius search from New York City; should return no points
     req.body = {
         "type": 'Point',
         "coordinates": [-74.00597, 40.71427], # New York City, New York
@@ -145,10 +158,9 @@ class GeojsonRackAppTester < Test::Unit::TestCase
     response = Net::HTTP.start(uri.hostname, uri.port) do |http|
       http.request(req)
     end
-
     assert_equal('200', response.code)
     assert_equal('OK', response.message)
-    assert_equal('[]', response.body)
+    assert_equal('[]', response.body) # No other points near NYC
   end
 
   ##
@@ -157,8 +169,9 @@ class GeojsonRackAppTester < Test::Unit::TestCase
     uri = URI('http://localhost:9292/')
     req = Net::HTTP::Get.new(uri)
 
+    # Polygon with no points inside it
     req.body = {
-      "type": 'Polygon', # Polygon with no points inside it
+      "type": 'Polygon',
       "coordinates": [
         [
           [67.0, 6.0],
@@ -172,13 +185,13 @@ class GeojsonRackAppTester < Test::Unit::TestCase
     response = Net::HTTP.start(uri.hostname, uri.port) do |http|
       http.request(req)
     end
-
     assert_equal('200', response.code)
     assert_equal('OK', response.message)
     assert_equal('[]', response.body)
 
+    # Polygon which should contain New Orleans
     req.body = {
-        "type": 'Polygon', # Polygon which should contain New Orleans
+        "type": 'Polygon',
         "coordinates": [
             [
                 [-91.147385, 30.471165], # Baton Rouge
@@ -191,13 +204,13 @@ class GeojsonRackAppTester < Test::Unit::TestCase
     response = Net::HTTP.start(uri.hostname, uri.port) do |http|
       http.request(req)
     end
-
     assert_equal('200', response.code)
     assert_equal('OK', response.message)
     assert_equal('[{"point":"POINT(-90.071533 29.951065)"}]', response.body) # New Orleans
 
+    # Polygon which contains all Louisiana points
     req.body = {
-        "type": 'Polygon', # Massive Polygon which should contain all Louisiana points
+        "type": 'Polygon',
         "coordinates": [
             [
                 [-74.00597, 40.71427], # New York City, New York
@@ -210,7 +223,6 @@ class GeojsonRackAppTester < Test::Unit::TestCase
     response = Net::HTTP.start(uri.hostname, uri.port) do |http|
       http.request(req)
     end
-
     assert_equal('200', response.code)
     assert_equal('OK', response.message)
     assert_equal('[{"point":"POINT(-91.147385 30.471165)"},{"point":"POINT(-90.071533 29.951065)"},{"point":"POINT(-89.961602 29.945504)"},{"point":"POINT(-90.02944 29.90222)"},{"point":"POINT(-90.07806 30.36917)"},{"point":"POINT(-90.1975 30.4958)"}]', response.body)
