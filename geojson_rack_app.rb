@@ -14,7 +14,7 @@ module Rack
     # Connect to the POSTGRES server and save the connection as a constant
     DB = Sequel.connect("postgres://geojson:geojson@localhost:5432/geojson_development")
     # Drop the geojson_points table if it exists, and re-create it, so we have a fresh set of data
-    DB.run("DROP TABLE geojson_points")
+    DB.run("DROP TABLE IF EXISTS geojson_points")
     DB.run("CREATE TABLE geojson_points (point_id serial PRIMARY KEY, point_geom geometry(POINT), srid integer DEFAULT 4326)")
     @srid = nil
     @decoded_input = nil
