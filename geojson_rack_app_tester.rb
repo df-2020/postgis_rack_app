@@ -71,12 +71,12 @@ class GeojsonRackAppTester < Test::Unit::TestCase
       "type": 'GeometryCollection',
       "geometries": [{
         "type": 'Point',
-        "coordinates": [30.471165, -91.147385] # Baton Rouge
+        "coordinates": [-91.147385, 30.471165] # Baton Rouge
       }, {
         "type": 'LineString',
         "coordinates": [
-          [29.951065, -90.071533], # New Orleans
-          [29.945504, -89.961602] # Chalmette
+          [-90.071533, 29.951065], # New Orleans
+          [-89.961602, 29.945504] # Chalmette
         ]
       }]
     }.to_json
@@ -89,13 +89,13 @@ class GeojsonRackAppTester < Test::Unit::TestCase
 
     req.body = [{
       "type": 'Point',
-      "coordinates": [29.90222, -90.02944] # Terrytown
+      "coordinates": [-90.02944, 29.90222] # Terrytown
     }, {
       "type": 'Point',
-      "coordinates": [30.36917, -90.07806] # Mandeville
+      "coordinates": [-90.07806, 30.36917] # Mandeville
     }, {
       "type": 'Point',
-      "coordinates": [30.4958, -90.1975] # Goodbee
+      "coordinates": [-90.1975, 30.4958] # Goodbee
     }].to_json
     response = Net::HTTP.start(uri.hostname, uri.port) do |http|
       http.request(req)
@@ -113,42 +113,42 @@ class GeojsonRackAppTester < Test::Unit::TestCase
 
     req.body = {
       "type": 'Point',
-      "coordinates": [29.99778, -90.17750], # Metairie
-      "radius": 30000
+      "coordinates": [-90.17750, 29.99778], # Metairie
+      "radius": 3000
     }.to_json
     response = Net::HTTP.start(uri.hostname, uri.port) do |http|
       http.request(req)
     end
-    puts response.body
 
     assert_equal('200', response.code)
     assert_equal('OK', response.message)
+    assert_equal('[]', response.body)
 
     req.body = {
         "type": 'Point',
-        "coordinates": [30.40722, -90.16167], # Madisonville
-        "radius": 25000
+        "coordinates": [-90.16167, 30.40722], # Madisonville
+        "radius": 10000
     }.to_json
     response = Net::HTTP.start(uri.hostname, uri.port) do |http|
       http.request(req)
     end
-    puts response.body
 
     assert_equal('200', response.code)
     assert_equal('OK', response.message)
+    assert_equal('[{"point":"POINT(-90.07806 30.36917)"}]', response.body)
 
     req.body = {
         "type": 'Point',
-        "coordinates": [40.71427, -74.00597], # New York City, New York
+        "coordinates": [-74.00597, 40.71427], # New York City, New York
         "radius": 19000
     }.to_json
     response = Net::HTTP.start(uri.hostname, uri.port) do |http|
       http.request(req)
     end
-    puts response.body
 
     assert_equal('200', response.code)
     assert_equal('OK', response.message)
+    assert_equal('[]', response.body)
   end
 
   ##
@@ -158,7 +158,7 @@ class GeojsonRackAppTester < Test::Unit::TestCase
     req = Net::HTTP::Get.new(uri)
 
     req.body = {
-      "type": 'Polygon',
+      "type": 'Polygon', # Polygon with no points inside it
       "coordinates": [
         [
           [67.0, 6.0],
@@ -172,47 +172,47 @@ class GeojsonRackAppTester < Test::Unit::TestCase
     response = Net::HTTP.start(uri.hostname, uri.port) do |http|
       http.request(req)
     end
-    puts response.body
 
     assert_equal('200', response.code)
     assert_equal('OK', response.message)
+    assert_equal('[]', response.body)
 
     req.body = {
-        "type": 'Polygon',
+        "type": 'Polygon', # Polygon which should contain New Orleans
         "coordinates": [
             [
-                [30.471165, -91.147385], # Baton Rouge
-                [30.36917, -90.07806], # Mandeville
-                [29.90222, -90.02944], # Terrytown
-                [30.471165, -91.147385] # Baton Rouge
+                [-91.147385, 30.471165], # Baton Rouge
+                [-90.07806, 30.36917], # Mandeville
+                [-90.02944, 29.90222], # Terrytown
+                [-91.147385, 30.471165] # Baton Rouge
             ]
         ]
     }.to_json
     response = Net::HTTP.start(uri.hostname, uri.port) do |http|
       http.request(req)
     end
-    puts response.body
 
     assert_equal('200', response.code)
     assert_equal('OK', response.message)
+    assert_equal('[{"point":"POINT(-90.071533 29.951065)"}]', response.body) # New Orleans
 
     req.body = {
-        "type": 'Polygon',
+        "type": 'Polygon', # Massive Polygon which should contain all Louisiana points (Something's wrong, doesn't contain Madisonville or Metairiefpt)
         "coordinates": [
             [
-                [40.71427, -74.00597], # New York City, New York
-                [30.26715, -97.74306], # Austin, Texas
-                [27.94752, -82.45843], # Tampa, Florida
-                [40.71427, -74.00597] # New York City, New York
+                [-74.00597, 40.71427], # New York City, New York
+                [-97.74306, 30.26715], # Austin, Texas
+                [-82.45843, 27.94752], # Tampa, Florida
+                [-74.00597, 40.71427] # New York City, New York
             ]
         ]
     }.to_json
     response = Net::HTTP.start(uri.hostname, uri.port) do |http|
       http.request(req)
     end
-    puts response.body
 
     assert_equal('200', response.code)
     assert_equal('OK', response.message)
+    assert_equal('[{"point":"POINT(-91.147385 30.471165)"},{"point":"POINT(-90.071533 29.951065)"},{"point":"POINT(-89.961602 29.945504)"},{"point":"POINT(-90.02944 29.90222)"},{"point":"POINT(-90.07806 30.36917)"},{"point":"POINT(-90.1975 30.4958)"}]', response.body)
   end
 end
